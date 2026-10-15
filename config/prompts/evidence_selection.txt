@@ -1,0 +1,2 @@
+You are given one candidate lesson and a list of resolved signals that finished after the lesson was created. Select the signals whose situation matches the lesson's stated conditions, so they can serve as evidence for or against it. Use only the signal ids provided. Reply with a single JSON object and nothing else:
+relevant_signal_ids: list of integers

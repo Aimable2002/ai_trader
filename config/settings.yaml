@@ -1,0 +1,56 @@
+instrument: XAUUSD
+
+timeframes:
+  M1: 1
+  M5: 5
+  M15: 15
+  M30: 30
+  H1: 60
+  H4: 240
+  D1: 1440
+default_timeframes: [M5, M15, H1]
+
+context_versions:
+  v1:
+    candles_per_timeframe: 150
+    indicators:
+      sma: 200
+      ema: 50
+      atr: 14
+      rsi: 14
+
+models:
+  default: Sonnet55
+  allowed:
+    - {key: Opus55, openrouter_id: anthropic/claude-opus-5.5, label: Claude Opus 5.5, structured_output: false}
+    - {key: Sonnet55, openrouter_id: anthropic/claude-sonnet-5.5, label: Claude Sonnet 5.5, structured_output: false}
+    - {key: Gemini4Argon, openrouter_id: google/gemini-4-argon, label: Gemini 4 Argon, structured_output: false}
+    - {key: Gpt6Astra, openrouter_id: openai/gpt-6-astra, label: GPT-6 Astra, structured_output: false}
+    - {key: Grok46, openrouter_id: x-ai/grok-4.6, label: Grok 4.6, structured_output: false}
+    - {key: DeepseekV41Flash, openrouter_id: deepseek/deepseek-v4.1-flash, label: DeepSeek V4.1 Flash, structured_output: true}
+
+inference:
+  prompt_config_version: p1
+  evaluator_version: e1
+  max_attempts: 2
+  max_entry_distance_pct: 5.0
+  store_context_pack: true
+
+limits:
+  daily_model_call_cap: 400
+  kill_switch: false
+
+memory:
+  lessons_per_call: 12
+  contrast_cases: 3
+  validation_cadence_new_cases: 3
+  evidence_cases_cap: 30
+
+shadow_mode: false
+stale_after_intervals: 3
+
+openrouter:
+  base_url: https://openrouter.ai/api/v1
+  timeout_seconds: 90
+  retries: 2
+  backoff_seconds: 2.0
