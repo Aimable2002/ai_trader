@@ -21,6 +21,11 @@ class TimeframePack(BaseModel):
     indicators: dict[str, list[FiniteFloat]]
 
 
+class FineCandles(BaseModel):
+    timeframe: str
+    candles: list[Candle]
+
+
 class IngestRequest(BaseModel):
     instrument: str
     trigger_candle_time: AwareDatetime
@@ -29,6 +34,7 @@ class IngestRequest(BaseModel):
     context_version: str
     model: str
     timeframes: list[TimeframePack]
+    fine_candles: FineCandles | None = None
 
 
 class PendingReview(BaseModel):
@@ -41,6 +47,8 @@ class ModelOutput(BaseModel):
     setup_zone_low: FiniteFloat | None = None
     setup_zone_high: FiniteFloat | None = None
     confirmation_entry_price: FiniteFloat | None = None
+    stop_loss_price: FiniteFloat | None = None
+    target_price: FiniteFloat | None = None
     pending_reviews: list[PendingReview] = []
     rationale: str = ""
     confidence: Unit | None = None
@@ -49,14 +57,21 @@ class ModelOutput(BaseModel):
     def _levels(self):
         if self.setup_direction == "NONE":
             self.setup_zone_low = self.setup_zone_high = self.confirmation_entry_price = None
+            self.stop_loss_price = self.target_price = None
             return self
-        levels = (self.setup_zone_low, self.setup_zone_high, self.confirmation_entry_price)
-        if any(level is None for level in levels):
-            raise ValueError("BUY and SELL require setup_zone_low, setup_zone_high and confirmation_entry_price")
-        if any(level <= 0 for level in levels):
+        required = (self.setup_zone_low, self.setup_zone_high, self.confirmation_entry_price, self.stop_loss_price)
+        if any(level is None for level in required):
+            raise ValueError("BUY and SELL require setup_zone_low, setup_zone_high, confirmation_entry_price and stop_loss_price")
+        if any(level <= 0 for level in (*required, self.target_price or 1.0)):
             raise ValueError("price levels must be positive")
         if self.setup_zone_low > self.setup_zone_high:
             raise ValueError("setup_zone_low must not exceed setup_zone_high")
+        buy = self.setup_direction == "BUY"
+        entry, stop, target = self.confirmation_entry_price, self.stop_loss_price, self.target_price
+        if (stop >= entry) if buy else (stop <= entry):
+            raise ValueError("stop_loss_price must be below the entry for a BUY and above it for a SELL")
+        if target is not None and ((target <= entry) if buy else (target >= entry)):
+            raise ValueError("target_price must be above the entry for a BUY and below it for a SELL")
         return self
 
 
