@@ -8,12 +8,12 @@ from psycopg_pool import ConnectionPool
 
 SIGNAL_COLUMNS = (
     "s.id, s.run_id, s.instrument, s.timeframe_set, s.context_version, s.model_key, s.mode, s.prediction_time, "
-    "s.direction, s.zone_low, s.zone_high, s.entry_price, s.rationale, s.confidence, s.lesson_ids"
+    "s.direction, s.zone_low, s.zone_high, s.entry_price, s.stop_loss, s.target, s.rationale, s.confidence, s.lesson_ids"
 )
 
 SIGNAL_INSERT_FIELDS = (
     "run_id", "instrument", "timeframe_set", "context_version", "model_key", "openrouter_id", "mode",
-    "prediction_time", "direction", "zone_low", "zone_high", "entry_price", "rationale", "confidence",
+    "prediction_time", "direction", "zone_low", "zone_high", "entry_price", "stop_loss", "target", "rationale", "confidence",
     "pending_reviews", "lesson_ids", "prompt_config_version", "source_candle_times", "context_pack",
 )
 JSON_FIELDS = {"pending_reviews", "source_candle_times", "context_pack"}
@@ -25,14 +25,14 @@ LESSON_INSERT_FIELDS = (
 
 OUTCOME_INSERT_FIELDS = (
     "signal_id", "exit_signal_id", "entry_price", "exit_price", "confirmed_at", "exit_time", "signed_move",
-    "mfe", "mae", "duration_seconds", "is_mistake", "evaluator_version", "resolved_at",
+    "mfe", "mae", "duration_seconds", "is_mistake", "evaluator_version", "resolved_at", "exit_reason", "result", "touch_source",
 )
 
 SCOPE_FILTER = "s.instrument = %s and s.timeframe_set = %s and s.context_version = %s and s.model_key = %s and s.mode = %s"
 
 CASE_COLUMNS = (
     "o.signal_id as id, s.direction, o.entry_price, o.exit_price, o.signed_move, o.mfe, o.mae, "
-    "o.exit_signal_id, o.confirmed_at, o.resolved_at, s.rationale"
+    "o.exit_signal_id, o.exit_reason, o.result, o.confirmed_at, o.resolved_at, s.rationale"
 )
 
 
@@ -175,6 +175,13 @@ class Repository:
             (at, reason, signal_id),
         )
 
+    def set_undetermined(self, signal_id: int, at: datetime, reason: str) -> int:
+        return self._run(
+            "update confirmations set status = 'UNDETERMINED', ended_at = %s, ended_reason = %s "
+            "where signal_id = %s and status in ('PENDING', 'CONFIRMED')",
+            (at, reason, signal_id),
+        )
+
     def confirmed_unresolved(self, scope: Scope, mode: str, direction: str) -> list[dict]:
         return self._all(
             f"select {SIGNAL_COLUMNS}, c.confirmed_at from signals s join confirmations c on c.signal_id = s.id "
@@ -193,7 +200,8 @@ class Repository:
     def unreflected_mistakes(self, scope: Scope, mode: str) -> list[dict]:
         return self._all(
             "select o.id as outcome_id, o.signal_id, o.entry_price, o.exit_price, o.signed_move, o.mfe, o.mae, "
-            "o.exit_signal_id, o.confirmed_at, o.resolved_at, s.direction, s.zone_low, s.zone_high, s.rationale, "
+            "o.exit_signal_id, o.exit_reason, o.confirmed_at, o.resolved_at, s.direction, s.zone_low, s.zone_high, "
+            "s.stop_loss, s.target, s.rationale, "
             "s.prediction_time from outcomes o join signals s on s.id = o.signal_id "
             f"where {SCOPE_FILTER} and o.is_mistake and o.reflected_at is null order by o.resolved_at, o.id",
             scope.params(mode),
@@ -217,9 +225,9 @@ class Repository:
             sql += " and s.direction = %s"
             params += (direction,)
         if correct is True:
-            sql += " and o.signed_move > 0"
+            sql += " and o.result = 'WIN'"
         if correct is False:
-            sql += " and o.signed_move < 0"
+            sql += " and o.result = 'MISTAKE'"
         if since is not None:
             sql += " and o.resolved_at > %s"
             params += (since,)
