@@ -13,14 +13,15 @@ logger = logging.getLogger(__name__)
 
 
 def count_results(cases: list[dict]) -> tuple[int, int]:
-    return sum(c["signed_move"] > 0 for c in cases), sum(c["signed_move"] < 0 for c in cases)
+    return sum(c["result"] == "WIN" for c in cases), sum(c["result"] == "MISTAKE" for c in cases)
 
 
 def flag_shared_exits(cases: list[dict]) -> list[dict]:
     groups = defaultdict(list)
     for case in cases:
-        groups[case["exit_signal_id"]].append(case["id"])
-    return [{**case, "shares_exit_with": [i for i in groups[case["exit_signal_id"]] if i != case["id"]]} for case in cases]
+        if case["exit_signal_id"] is not None:
+            groups[case["exit_signal_id"]].append(case["id"])
+    return [{**case, "shares_exit_with": [i for i in groups.get(case["exit_signal_id"], []) if i != case["id"]]} for case in cases]
 
 
 def next_status(current: str, verdict: str, relevant_count: int) -> str:
@@ -54,7 +55,7 @@ class MemoryService:
         )
         payload = {
             "conditions": {"instrument": scope.instrument, "timeframes": scope.timeframe_set, "context_version": scope.context_version, "model": scope.model_key},
-            "mistake": {k: mistake[k] for k in ("signal_id", "direction", "zone_low", "zone_high", "entry_price", "exit_price", "signed_move", "mfe", "mae", "rationale")},
+            "mistake": {k: mistake[k] for k in ("signal_id", "direction", "zone_low", "zone_high", "entry_price", "stop_loss", "target", "exit_price", "exit_reason", "signed_move", "mfe", "mae", "rationale")},
             "correct_cases": contrast,
         }
         output = self._llm.ask("reflection", scope.model_key, build_json_messages(self._settings.prompts["reflection"], payload), ReflectionOutput)
