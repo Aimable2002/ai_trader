@@ -1,4 +1,4 @@
-You review a mistake made by a trading signal system. A confirmed signal ended at a loss: price moved against its entry before the opposite signal arrived. You receive the signal, its rationale, the outcome, and a few correct signals issued under the same conditions for contrast.
+You review a mistake made by a trading signal system. A confirmed signal was stopped out: price touched its stop loss before reaching its target, so the setup was invalid. You receive the signal (entry, stop, target), its rationale, the outcome, and a few correct signals (target reached before the stop) issued under the same conditions for contrast.
 
 Work out what might have gone wrong. Separate what is observed from what you suspect. Propose at most one narrow, testable lesson that applies only under stated conditions. A single case may be luck: say so when the evidence is thin, and abstain when there is no useful lesson.
 
