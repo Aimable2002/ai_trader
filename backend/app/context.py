@@ -24,7 +24,8 @@ def _active_block(active: list[dict]) -> str:
         return "none"
     return "\n".join(
         f"- id={s['id']} {s['direction']} status={s['lifecycle_status']} zone={_number(s['zone_low'])}-{_number(s['zone_high'])} "
-        f"entry={_number(s['entry_price'])} issued={s['prediction_time'].strftime('%Y-%m-%dT%H:%M')}"
+        f"entry={_number(s['entry_price'])} stop={_number(s['stop_loss'])} "
+        f"target={'none' if s['target'] is None else _number(s['target'])} issued={s['prediction_time'].strftime('%Y-%m-%dT%H:%M')}"
         for s in active
     )
 
