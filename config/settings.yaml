@@ -36,6 +36,11 @@ inference:
   max_entry_distance_pct: 5.0
   store_context_pack: true
 
+resolution:
+  timeframe: M1
+  window_candles: 3
+  max_smallest_timeframe: H4
+
 limits:
   daily_model_call_cap: 400
   kill_switch: false
