@@ -33,6 +33,12 @@ class InferenceConfig(BaseModel):
     store_context_pack: bool
 
 
+class ResolutionConfig(BaseModel):
+    timeframe: str
+    window_candles: int
+    max_smallest_timeframe: str
+
+
 class LimitsConfig(BaseModel):
     daily_model_call_cap: int
     kill_switch: bool
@@ -59,6 +65,7 @@ class Settings(BaseModel):
     context_versions: dict[str, ContextSpec]
     models: ModelsConfig
     inference: InferenceConfig
+    resolution: ResolutionConfig
     limits: LimitsConfig
     memory: MemoryConfig
     shadow_mode: bool
@@ -78,6 +85,8 @@ class Settings(BaseModel):
             raise ValueError("default_timeframes must hold exactly 3 distinct timeframes")
         if not set(defaults) <= set(self.timeframes):
             raise ValueError("default_timeframes contains an unknown timeframe")
+        if self.resolution.timeframe not in self.timeframes or self.resolution.max_smallest_timeframe not in self.timeframes:
+            raise ValueError("resolution timeframes must be known timeframes")
         missing = [name for name in REQUIRED_PROMPTS if name not in self.prompts]
         if missing:
             raise ValueError(f"missing prompts: {missing}")
