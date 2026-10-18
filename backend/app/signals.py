@@ -39,7 +39,9 @@ def idempotency_key(settings: Settings, scope: Scope, mode: str, req: IngestRequ
 def check_entry_distance(output: ModelOutput, last_close: float, max_pct: float) -> None:
     if output.setup_direction == "NONE":
         return
-    levels = (output.setup_zone_low, output.setup_zone_high, output.confirmation_entry_price)
+    levels = [output.setup_zone_low, output.setup_zone_high, output.confirmation_entry_price, output.stop_loss_price]
+    if output.target_price is not None:
+        levels.append(output.target_price)
     if any(abs(level - last_close) / last_close * 100 > max_pct for level in levels):
         raise OutputRejected(f"price levels are more than {max_pct}% away from the last close")
 
@@ -57,6 +59,8 @@ class SignalService:
         scope = Scope(req.instrument, ",".join(codes), req.context_version, req.model)
         smallest = next(pack for pack in req.timeframes if pack.timeframe == codes[0])
         self._repo.upsert_candles(req.instrument, codes[0], smallest.candles)
+        if req.fine_candles is not None:
+            self._repo.upsert_candles(req.instrument, req.fine_candles.timeframe, req.fine_candles.candles)
         modes = [PRIMARY, SHADOW] if self._settings.shadow_mode else [PRIMARY]
         tickets = []
         for mode in modes:
@@ -84,7 +88,7 @@ class SignalService:
         codes = scope.timeframe_set.split(",")
         smallest = next(pack for pack in req.timeframes if pack.timeframe == codes[0])
         last_close = smallest.candles[-1].close
-        self._lifecycle.confirm_pending(scope, mode, at)
+        self._lifecycle.advance(scope, mode, at)
         active = self._repo.active_signals(scope, mode)
         lessons = self._memory.retrieve(scope, at) if mode == PRIMARY else []
         messages = build_inference_messages(self._settings, req, codes, active, lessons)
@@ -111,6 +115,8 @@ class SignalService:
             "zone_low": output.setup_zone_low,
             "zone_high": output.setup_zone_high,
             "entry_price": output.confirmation_entry_price,
+            "stop_loss": output.stop_loss_price,
+            "target": output.target_price,
             "rationale": output.rationale,
             "confidence": output.confidence,
             "pending_reviews": [review.model_dump() for review in output.pending_reviews],
